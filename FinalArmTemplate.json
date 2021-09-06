@@ -1,0 +1,370 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "projectName": {
+      "type": "string",
+      "defaultValue": "PeopleCounting",
+      "minLength": 1,
+      "maxLength": 40,
+      "metadata": {
+        "description": "Define the project name or prefix for all the resources."
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "The datacenter location to use for the deployment."
+      }
+    },
+    "IoTHubskuName": {
+      "type": "string",
+      "defaultValue": "S1",
+      "allowedValues": [
+        "F1",
+        "S1",
+        "S2",
+        "S3"
+    ],
+      "metadata": {
+        "description": "The SKU to use for the IoT Hub."
+      }
+    },
+    "IoTHubcapacityUnits": {
+      "type": "int",
+      "defaultValue": 1,
+      "metadata": {
+        "description": "Specifies the number of provisioned IoT Hub units. Restricted to 1 unit for the F1 SKU. Can be set up to maximum number allowed for subscription."
+      }
+    },
+    "StreamAnalyticsNoOfStreamingUnits": {
+      "type": "int",
+      "defaultValue": 1,
+      "minValue": 1,
+      "maxValue": 48,
+      "allowedValues": [
+        1,
+        3,
+        6,
+        12,
+        18,
+        24,
+        30,
+        36,
+        42,
+        48
+      ],
+      "metadata": {
+        "description": "Number of Streaming Units"
+      }
+    },
+    "userDisplayName": {
+      "type": "string",
+      "minLength": 3,
+      "defaultValue": "Akash Gautam",
+      "metadata": {
+        "description": "Your name for connecting Stream Analytics to PowerBI."
+      }
+    },
+    "userLoginName": {
+      "type": "string",
+      "minLength": 3,
+      "defaultValue": "akash_gautam@persistent.com",
+      "metadata": {
+        "description": "Your loginname/alias for connecting Stream Analytics to PowerBI."
+      }
+    }
+  },
+  "variables": {
+    "IoTHubName": "[concat(parameters('projectName'), '-IoTHub-', uniqueString(resourceGroup().id))]",
+    "StreamAnalyticsJobName": "[concat(parameters('projectName'), '-StreamAnalyticsJob-', uniqueString(resourceGroup().id))]"
+    
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Devices/IotHubs",
+      "apiVersion": "2021-03-31",
+      "name": "[variables('IoTHubName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "[parameters('IoTHubskuName')]",
+        "capacity": "[parameters('IoTHubcapacityUnits')]"
+      },
+      "properties": {
+        "eventHubEndpoints": {
+          "events": {
+            "retentionTimeInDays": 1,
+            "partitionCount": 4
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Security/iotSecuritySolutions",
+      "apiVersion": "2019-08-01",
+      "name": "[variables('IoTHubName')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+          "[resourceId('Microsoft.Devices/IotHubs', variables('IoTHubName'))]"
+      ],
+      "properties": {
+          "displayName": "[variables('IoTHubName')]",
+          "status": "Enabled",
+          "export": [],
+          "disabledDataSources": [],
+          "additionalWorkspaces": [],
+          "iotHubs": [
+              "[resourceId('Microsoft.Devices/IotHubs', variables('IoTHubName'))]"
+          ],
+          "recommendationsConfiguration": [
+              {
+                  "recommendationType": "IoT_ACRAuthentication",
+                  "status": "Enabled"
+              },
+              {
+                  "recommendationType": "IoT_AgentSendsUnutilizedMessages",
+                  "status": "Enabled"
+              },
+              {
+                  "recommendationType": "IoT_AuditdNotReceived",
+                  "status": "Enabled"
+              },
+              {
+                  "recommendationType": "IoT_Baseline",
+                  "status": "Enabled"
+              },
+              {
+                  "recommendationType": "IoT_EdgeHubMemOptimize",
+                  "status": "Enabled"
+              },
+              {
+                  "recommendationType": "IoT_EdgeLoggingOptions",
+                  "status": "Enabled"
+              },
+              {
+                  "recommendationType": "IoT_InconsistentModuleSettings",
+                  "status": "Enabled"
+              },
+              {
+                  "recommendationType": "IoT_InstallAgent",
+                  "status": "Enabled"
+              },
+              {
+                  "recommendationType": "IoT_IPFilter_DenyAll",
+                  "status": "Enabled"
+              },
+              {
+                  "recommendationType": "IoT_IPFilter_PermissiveRule",
+                  "status": "Enabled"
+              },
+              {
+                  "recommendationType": "IoT_OpenPorts",
+                  "status": "Enabled"
+              },
+              {
+                  "recommendationType": "IoT_PermissiveFirewallPolicy",
+                  "status": "Enabled"
+              },
+              {
+                  "recommendationType": "IoT_PermissiveInputFirewallRules",
+                  "status": "Enabled"
+              },
+              {
+                  "recommendationType": "IoT_PermissiveOutputFirewallRules",
+                  "status": "Enabled"
+              },
+              {
+                  "recommendationType": "IoT_PrivilegedDockerOptions",
+                  "status": "Enabled"
+              },
+              {
+                  "recommendationType": "IoT_RecommendedIpRulesByBaseLine",
+                  "status": "Enabled"
+              },
+              {
+                  "recommendationType": "IoT_SharedCredentials",
+                  "status": "Enabled"
+              },
+              {
+                  "recommendationType": "IoT_VulnerableTLSCipherSuite",
+                  "status": "Enabled"
+              },
+              {
+                  "recommendationType": "IoT_EOL_OSversion",
+                  "status": "Enabled"
+              }
+          ],
+          "unmaskedIpLoggingStatus": "Enabled"
+      }
+    },
+    {
+      "type": "Microsoft.StreamAnalytics/streamingjobs",
+      "apiVersion": "2017-04-01-preview",
+      "name": "[variables('StreamAnalyticsJobName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "sku": {
+          "name": "Standard"
+        },
+        "outputErrorPolicy": "Stop",
+        "eventsOutOfOrderPolicy": "Adjust",
+        "eventsOutOfOrderMaxDelayInSeconds": 0,
+        "eventsLateArrivalMaxDelayInSeconds": 5,
+        "jobType": "Cloud",
+        "dataLocale": "en-US",
+        "compatibilityLevel": "1.0",
+
+        "inputs": [
+          {
+            "name": "iothubinput",
+            "properties": {
+              "type": "Stream",
+              "datasource": {
+                "type": "Microsoft.Devices/IotHubs",
+                "properties": {
+                  "iotHubNamespace": "[variables('IoTHubName')]",
+                  "sharedAccessPolicyName": "iothubowner",
+                  "sharedAccessPolicyKey": "[listkeys(resourceId('Microsoft.Devices/IotHubs/IotHubKeys',variables('IoTHubName'), 'iothubowner'),'2016-02-03').primaryKey]",
+                  "endpoint": "messages/events"
+                }
+              },
+              "serialization": {
+                "type": "Json",
+                  "properties": {
+                  "encoding": "UTF8"
+                }
+              },
+              "compression": {
+                "type": "None"
+              }
+            }
+          }
+        ],
+        "transformation": {
+          "name": "Transformation",
+          "properties": {
+            "streamingUnits": "[parameters('StreamAnalyticsNoOfStreamingUnits')]",
+            "query": "WITH SampleData(DeviceId, platecollectionAt1, platecollectionAt2, bringingOwnFood,EventEnqueuedUtcTime)\r\nAS\r\n(SELECT DeviceId, COALESCE(platecollectionAt1, 0) AS collectionArea1, COALESCE(platecollectionAt2, 0) AS collectionArea2, COALESCE(bringingOwnFood, 0) AS bringingHomeFood, CAST(iothub.EnqueuedTime AS datetime) AS event_date, 'Lunch' AS Type\r\nFROM iothubinput\r\nWHERE ((DATEPART(hour,EventEnqueuedUtcTime) = 5 ) AND (DATEPART(minute,EventEnqueuedUtcTime) BETWEEN 45 AND 59)) OR (DATEPART(hour,EventEnqueuedUtcTime) BETWEEN 6 AND 8) OR ((DATEPART(hour,EventEnqueuedUtcTime) = 9 ) AND (DATEPART(minute,EventEnqueuedUtcTime) BETWEEN 0 AND 30))),\r\ndemoData(DeviceId, platecollectionAt1, platecollectionAt2, bringingOwnFood,EventEnqueuedUtcTime)\r\nAS\r\n(\r\nSELECT DeviceId, COALESCE(platecollectionAt1, 0) AS collectionArea1, COALESCE(platecollectionAt2, 0) AS collectionArea2, COALESCE(bringingOwnFood, 0) AS bringingHomeFood, CAST(iothub.EnqueuedTime AS datetime) AS event_date,'Snacks' AS Type\r\nFROM iothubinput\r\nWHERE ((DATEPART(hour,EventEnqueuedUtcTime) = 10 ) AND (DATEPART(minute,EventEnqueuedUtcTime) BETWEEN 30 AND 59)) OR (DATEPART(hour,EventEnqueuedUtcTime) BETWEEN 11 AND 13) OR ((DATEPART(hour,EventEnqueuedUtcTime) = 14 ) AND (DATEPART(minute,EventEnqueuedUtcTime) BETWEEN 0 AND 30))\r\n)\r\nSELECT event_date, UDF.timeLocal(event_date) AS Date_Time, UDF.seperateutcdatetime(event_date) AS Date, UDF.seperateMonth(event_date) AS Month, collectionArea1, collectionArea2, bringingHomeFood, UDF.calcCount(collectionArea1, collectionArea2, bringingHomeFood) AS TotalPeople, Type\r\nINTO powerbioutput\r\nFROM SampleData\r\nUNION\r\nSELECT event_date, UDF.timeLocal(event_date) AS Date_Time, UDF.seperateutcdatetime(event_date) AS Date, UDF.seperateMonth(event_date) AS Month, collectionArea1, collectionArea2, bringingHomeFood, UDF.calcCount(collectionArea1, collectionArea2, bringingHomeFood) AS TotalPeople, Type \r\nFROM demoData"
+          }
+        },
+        "outputs": [
+          {
+            "name": "powerbioutput",
+            "properties": {
+              "datasource": {
+                "type": "PowerBI",
+                "properties": {
+                    "refreshToken": "dummytoken",
+                    "tokenUserPrincipalName": "[parameters('userLoginName')]",
+                    "tokenUserDisplayName": "[parameters('userDisplayName')]",
+                    "dataset": "samplearmPlateDataset",
+                    "table": "platecountPersi",
+                    "groupId": "",
+                    "groupName": "My Workspace",
+                    "authenticationMode": "UserToken"
+                }
+              }
+            }
+          }
+        ],
+        "functions": [
+          {
+            "name": "seperateutcdatetime",
+            "properties": {
+              "type": "Scalar",
+              "properties": {
+                "inputs": [
+                  {
+                    "dataType": "any"
+                  }
+                ],
+                "output": {
+                  "dataType": "any"
+                },
+                "binding": {
+                  "type": "Microsoft.StreamAnalytics/JavascriptUdf",  
+                  "properties": {  
+                      "script": "function main(arg1) {\r\n'use strict';\r\n var date = new Date(arg1)\r\nvar yearString = date.getFullYear().toString();\r\nvar month = date.getMonth() + 1;\r\nvar day = date.getDate();\r\nvar monthString = month < 10 ? \"0\" + month.toString() : month.toString();\r\nvar dayString = day < 10 ? \"0\" + day.toString() : day.toString();\r\nreturn yearString + '-' + monthString + '-' + dayString;\r\n}"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "name": "seperateMonth",
+            "properties": {
+              "type": "Scalar",
+              "properties": {
+                "inputs": [
+                  {
+                    "dataType": "any"
+                  }
+                ],
+                "output": {
+                  "dataType": "any"
+                },
+                "binding": {
+                  "type": "Microsoft.StreamAnalytics/JavascriptUdf",  
+                  "properties": {  
+                      "script": "function seperateMonth(arg1) {\r\n'use strict';\r\nvar date = new Date(arg1);\r\nvar month = date.getMonth() + 1;\r\nvar yearString = date.getFullYear().toString();\r\nvar result;\r\nswitch (month) {\r\ncase 1:\r\nresult = \"January\";\r\nbreak;\r\ncase 2:\r\nresult = \"February\";\r\nbreak;\r\ncase 3:\r\nresult = \"March\";\r\nbreak;\r\ncase 4:\r\nresult = \"April\";\r\nbreak;\r\ncase 5:\r\nresult = \"May\";\r\nbreak;\r\ncase 6:\r\nresult = \"June\";\r\nbreak;\r\ncase 7:\r\nresult = \"July\";\r\nbreak;\r\ncase 8:\r\nresult = \"August\";\r\nbreak;\r\ncase 9:\r\nresult = \"September\";\r\nbreak;\r\ncase 10:\r\nresult = \"October\";\r\nbreak;\r\ncase 11:\r\nresult = \"November\";\r\nbreak;\r\ncase 12:\r\nresult = \"December\";\r\nbreak;\r\n}\r\nreturn result + ',' + yearString;\r\n}"                       
+                    }
+                }
+              }
+            }
+        },
+        {
+            "name": "timeLocal",
+            "properties": {
+              "type": "Scalar",
+              "properties": {
+                "inputs": [
+                  {
+                    "dataType": "any"
+                  }
+                ],
+                "output": {
+                  "dataType": "any"
+                },
+                "binding": {
+                  "type": "Microsoft.StreamAnalytics/JavascriptUdf",  
+                  "properties": {  
+                      "script": "function main(arg1) {\r\nvar n = new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });\r\nreturn n;\r\n}"
+                    }
+                }
+              }
+            }
+        },
+        {
+            "name": "calcCount",
+            "properties": {
+              "type": "Scalar",
+              "properties": {
+                "inputs": [
+                  {
+                    "dataType": "any"
+                  },
+                  {
+                    "dataType": "any"
+                  },
+                  {
+                    "dataType": "any"
+                  }
+                ],
+                "output": {
+                  "dataType": "any"
+                },
+                "binding": {
+                  "type": "Microsoft.StreamAnalytics/JavascriptUdf",  
+                  "properties": {  
+                      "script": "function main(collectionArea1, collectionArea2, bringingHomeFood) {\r\nvar count = (collectionArea1 + collectionArea2) - bringingHomeFood;\r\nreturn count;\r\n}"
+                    }
+                }
+              }
+            }
+        }
+        ]
+      }
+    }
+  ]
+}
